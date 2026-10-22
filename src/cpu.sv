@@ -1,33 +1,132 @@
-module cpu (
+module cpu #(
+    parameter PC_BITS = 9   // 128-word instruction memory: PCs fit in 9 bits
+)(
     input logic clk,
-    input logic rst_n
+    input logic rst_n,
+
+    //instruction memory bus
+    input logic [31:0] imem_rdata,
+    output logic [31:0] imem_addr,
+
+    output logic [31:0] dmem_addr,
+    output logic [31:0] dmem_wdata,
+    output logic dmem_we,
+    output logic [3:0] dmem_be,
+    input logic [31:0] dmem_rdata // data read for load
 );
 
 import riscv_pkg::*;
 
+// FETCH
 logic [31:0] pc;
 logic [31:0] pc_next;
-logic [31:0] pc_target;
 logic [31:0] pc_plus_four;
-logic [31:0] pc_plus_second_add;
-assign pc_target = (op_e == OPCODE_J_TYPE_JALR) ? {alu_result[31:1], 1'b0} : pc_e + immediate_e;
-assign pc_plus_four = pc+4;
 wire [31:0] instruction;
-
 logic stall;
-
-assign stall = (write_back_source_e == 2'b01) && (dest_reg_e != 5'b00000) && (dest_reg_e == source_reg1 || dest_reg_e == source_reg2);
-
 logic pred_taken;
 logic [31:0] pred_target;
-logic pred_taken_d;
-logic [31:0] pred_target_d;
-logic [31:0] pc_d;
-logic [31:0] instruction_d;
 logic btb_hit;
 logic btb_hit_taken;
 
-btb #(.ENTRIES(16)) branch_pred(
+// IF/ID register
+logic [31:0] pc_d;
+logic [31:0] instruction_d;
+logic pred_taken_d;
+logic [31:0] pred_target_d;
+
+// DECODE
+logic [6:0] op;
+logic [2:0] f3;
+logic [4:0] source_reg1;
+logic [4:0] source_reg2;
+logic [4:0] dest_reg;
+logic [24:0] raw_imm;
+wire [31:0] immediate;
+wire [31:0] read_reg1;
+wire [31:0] read_reg2;
+wire [3:0] alu_control;
+wire [2:0] imm_source;
+wire mem_write;
+wire reg_write;
+wire alu_source;
+wire [1:0] write_back_source;
+wire second_add_source;
+wire branch;
+wire jump;
+
+// ID/EX register
+logic [31:0] pc_e;
+logic [31:0] read_reg1_e;
+logic [31:0] read_reg2_e;
+logic [4:0] source_reg1_e;
+logic [4:0] source_reg2_e;
+logic [31:0] immediate_e;
+logic [4:0] dest_reg_e;
+logic [2:0] f3_e;
+logic reg_write_e;
+logic mem_write_e;
+logic alu_source_e;
+logic [1:0] write_back_source_e;
+logic [3:0] alu_control_e;
+logic second_add_source_e;
+logic branch_e;
+logic jump_e;
+logic [6:0] op_e;
+logic pred_taken_e;
+logic [31:0] pred_target_e;
+
+// EXECUTE
+logic [31:0] forward_a;
+logic [31:0] forward_b;
+logic [31:0] alu_src2;
+wire [31:0] alu_result;
+wire alu_zero;
+logic take_branch;
+wire actual_taken;
+logic mispredict;
+logic [31:0] pc_target;
+logic [31:0] redirect_pc;
+logic [31:0] pc_plus_second_add;
+
+// EX/MEM register
+logic [31:0] alu_result_m;
+logic [31:0] read_reg2_m;
+logic [31:0] pc_m;
+logic [31:0] pc_plus_second_add_m;
+logic [4:0] dest_reg_m;
+logic [2:0] f3_m;
+logic mem_write_m;
+logic reg_write_m;
+logic [1:0] write_back_source_m;
+
+// MEMORY
+logic [31:0] forward_m;
+wire [3:0] mem_byte_enable;
+wire [31:0] mem_write_data;
+wire [31:0] mem_read;
+wire [31:0] mem_read_write_back_data;
+wire mem_read_write_back_valid;
+
+// MEM/WB register
+logic [31:0] alu_result_w;
+logic [31:0] mem_read_write_back_data_w;
+logic        mem_read_write_back_valid_w;
+logic [31:0] pc_w;
+logic [31:0] pc_plus_second_add_w;
+logic [4:0]  dest_reg_w;
+logic        reg_write_w;
+logic [1:0]  write_back_source_w;
+
+// WRITE-BACK
+logic [31:0] write_back_data;
+logic wb_valid;
+
+assign pc_target = (op_e == OPCODE_J_TYPE_JALR) ? {alu_result[31:1], 1'b0} : pc_e + immediate_e;
+assign pc_plus_four = pc+4;
+
+assign stall = (write_back_source_e == 2'b01) && (dest_reg_e != 5'b00000) && (dest_reg_e == source_reg1 || dest_reg_e == source_reg2);
+
+btb #(.ENTRIES(16), .PC_BITS(PC_BITS)) branch_pred(
     .clk(clk),
     .rst_n(rst_n),
     .lookup_pc(pc),
@@ -81,35 +180,11 @@ always_ff @(posedge clk) begin
     end
 end
 
-logic wb_valid;
+assign imem_addr = pc;
+assign instruction = imem_rdata;
 
-memory #(.mem_init("./test_imemory.hex"))
-instruction_memory (
-    .clk(clk),
-    .address(pc),
-    .write_data(32'b0),
-    .write_enable(1'b0),
-    .rst_n(1'b1),
-    .byte_enable(4'b0000),
-    .read_data(instruction)
-);
-
-logic [6:0] op;
-logic [2:0] f3;
 assign op = instruction_d[6:0];
 assign f3 = instruction_d[14:12];
-
-wire alu_zero;
-wire [3:0] alu_control;
-wire [2:0] imm_source;
-wire mem_write;
-wire reg_write;
-wire alu_source;
-wire [1:0] write_back_source;
-wire actual_taken;
-wire second_add_source;
-wire branch;
-wire jump;
 
 control control_unit(
     .op(op),
@@ -126,37 +201,14 @@ control control_unit(
     .jump(jump)
 );
 
-logic [31:0] pc_e;
-logic mispredict;
-logic [31:0] redirect_pc;
-logic [31:0] read_reg1_e;
-logic [31:0] read_reg2_e;
-logic [4:0] source_reg1_e;
-logic [4:0] source_reg2_e;
-logic [31:0] immediate_e;
-logic [4:0] dest_reg_e;
-logic [2:0] f3_e;
-logic reg_write_e;
-logic mem_write_e;
-logic alu_source_e;
-logic [1:0] write_back_source_e;
-logic [3:0] alu_control_e;
-logic second_add_source_e;
-logic branch_e;
-logic jump_e;
-logic [6:0] op_e;
-logic pred_taken_e;
-logic [31:0] pred_target_e;
-
-logic take_branch;
 always_comb begin
     case (f3_e)
-        F3_BEQ  : take_branch = alu_zero;
-        F3_BNE  : take_branch = ~alu_zero;
-        F3_BLT  : take_branch = ~alu_zero;
-        F3_BGE  : take_branch = alu_zero;
-        F3_BLTU : take_branch = ~alu_zero;
-        F3_BGEU : take_branch = alu_zero;
+        F3_BEQ  : take_branch = alu_zero;    // beq
+        F3_BNE  : take_branch = ~alu_zero;   // bne
+        F3_BLT  : take_branch = ~alu_zero;   // blt:  slt  = 1
+        F3_BGE  : take_branch = alu_zero;    // bge:  slt  = 0
+        F3_BLTU : take_branch = ~alu_zero;   // bltu: sltu = 1
+        F3_BGEU : take_branch = alu_zero;    // bgeu: sltu = 0
         default: take_branch = 1'b0;
     endcase
 end
@@ -166,22 +218,9 @@ assign mispredict = (actual_taken != pred_taken_e) || (actual_taken && pred_targ
 
 assign redirect_pc = actual_taken ? pc_target : pc_e+4;
 
-logic [4:0] source_reg1;
 assign source_reg1 = instruction_d[19:15];
-logic [4:0] source_reg2;
 assign source_reg2 = instruction_d[24:20];
-logic [4:0] dest_reg;
 assign dest_reg = instruction_d[11:7];
-
-wire [31:0] read_reg1;
-wire [31:0] read_reg2;
-wire [31:0] mem_read;
-wire [31:0] alu_result;
-
-logic [31:0] write_back_data;
-
-wire [31:0] mem_read_write_back_data;
-wire mem_read_write_back_valid;
 
 always_comb begin : write_back_source_select
     case (write_back_source_w)
@@ -191,7 +230,7 @@ always_comb begin : write_back_source_select
         end
         2'b01:  begin
             write_back_data = mem_read_write_back_data_w;
-            wb_valid = mem_read_write_back_valid_w;
+            wb_valid = mem_read_write_back_valid_w;     // load: memory data
         end
         2'b10 : begin
             write_back_data = pc_w + 4;
@@ -203,12 +242,10 @@ always_comb begin : write_back_source_select
         end
         default: begin
             write_back_data = alu_result_w;
-            wb_valid = 1'b1;
+            wb_valid = 1'b1;    // else: ALU result
         end
     endcase
 end
-
-logic [31:0] forward_m;
 
 always_comb begin : write_back_source_forward
     case (write_back_source_m)
@@ -239,9 +276,7 @@ regfile regfile(
     .address3(dest_reg_w)
 );
 
-logic [24:0] raw_imm;
 assign raw_imm = instruction_d[31:7];
-wire [31:0] immediate;
 
 signext sign_extender(
     .raw_src(raw_imm),
@@ -291,15 +326,9 @@ always_ff @(posedge clk) begin
         op_e <= op;
         pred_taken_e <= pred_taken_d;
         pred_target_e <= pred_target_d;
-
+        
     end
 end
-
-logic [31:0] alu_src2;
-
-logic [31:0] forward_a;
-
-logic [31:0] forward_b;
 
 always_comb begin : forwardA
     if (source_reg1_e == dest_reg_m && reg_write_m == 1'b1 && dest_reg_m != 5'b00000) begin
@@ -340,19 +369,6 @@ alu alu_inst(
     .zero(alu_zero)
 );
 
-wire [3:0] mem_byte_enable;
-wire [31:0] mem_write_data;
-
-logic [31:0] alu_result_m;
-logic [31:0] read_reg2_m;
-logic [31:0] pc_m;
-logic [31:0] pc_plus_second_add_m;
-logic [4:0] dest_reg_m;
-logic [2:0] f3_m;
-logic mem_write_m;
-logic reg_write_m;
-logic [1:0] write_back_source_m;
-
 always_ff @(posedge clk) begin
     if (!rst_n) begin
         alu_result_m <= 32'h00000000;
@@ -386,16 +402,11 @@ load_store_decoder ls_decode(
     .write_data(mem_write_data)
 );
 
-memory #(.mem_init("./test_dmemory.hex"))
-data_memory (
-    .clk(clk),
-    .address({alu_result_m[31:2], 2'b00}),
-    .write_data(mem_write_data),
-    .write_enable(mem_write_m),
-    .byte_enable(mem_byte_enable),
-    .rst_n(1'b1),
-    .read_data(mem_read)
-);
+assign dmem_addr = {alu_result_m[31:2], 2'b00};
+assign dmem_we = mem_write_m;
+assign dmem_be = mem_byte_enable;
+assign mem_read = dmem_rdata;
+assign dmem_wdata = mem_write_data;
 
 reader reader_inst(
     .mem_data(mem_read),
@@ -404,15 +415,6 @@ reader reader_inst(
     .wb_data(mem_read_write_back_data),
     .valid(mem_read_write_back_valid)
 );
-
-logic [31:0] alu_result_w;
-logic [31:0] mem_read_write_back_data_w;
-logic        mem_read_write_back_valid_w;
-logic [31:0] pc_w;
-logic [31:0] pc_plus_second_add_w;
-logic [4:0]  dest_reg_w;
-logic        reg_write_w;
-logic [1:0]  write_back_source_w;
 
 always_ff @(posedge clk) begin
     if (!rst_n) begin

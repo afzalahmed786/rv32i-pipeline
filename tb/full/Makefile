@@ -17,10 +17,11 @@ VERILOG_SOURCES += $(PWD)/../../src/alu.sv
 VERILOG_SOURCES += $(PWD)/../../src/load_store_decoder.sv
 VERILOG_SOURCES += $(PWD)/../../src/reader.sv
 VERILOG_SOURCES += $(PWD)/../../src/btb.sv
+VERILOG_SOURCES += $(PWD)/../top.sv
 # use VHDL_SOURCES for VHDL files
 
 # TOPLEVEL is the name of the toplevel module in your Verilog or VHDL file
-TOPLEVEL = cpu
+TOPLEVEL = top
 
 # MODULE is the basename of the Python test file
 MODULE ?= test_full_program

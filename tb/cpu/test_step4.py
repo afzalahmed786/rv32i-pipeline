@@ -21,12 +21,12 @@ async def cpu_reset(dut):
     await RisingEdge(dut.clk)
 
 def sample(dut, names):
-    return {name: int(getattr(dut, name).value) for name in names}
+    return {name: int(getattr(dut.core, name).value) for name in names}
 
 async def run_until_pc(dut, stage_pc, address, limit=30):
     """Clock until the instruction at `address` is in the stage whose pc is `stage_pc`"""
     for _ in range(limit):
-        if int(getattr(dut, stage_pc).value) == address:
+        if int(getattr(dut.core, stage_pc).value) == address:
             return
         await RisingEdge(dut.clk)
     assert False, f"{stage_pc} never reached {address:X}"
@@ -42,7 +42,7 @@ async def mem_wb_register_test(dut):
     for cycle in range(15):
         await RisingEdge(dut.clk)
         for memory_name, wb_name in MEM_WB_SIGNALS.items():
-            got = int(getattr(dut, wb_name).value)
+            got = int(getattr(dut.core, wb_name).value)
             assert got == prev[memory_name], \
                 f"cycle {cycle}: {wb_name} = {got:X}, expected {prev[memory_name]:X} (previous {memory_name})"
         prev = sample(dut, MEM_WB_SIGNALS.keys())
@@ -54,7 +54,7 @@ async def mem_wb_reset_test(dut):
     dut.rst_n.value = 0
     await RisingEdge(dut.clk)
     await RisingEdge(dut.clk)
-    assert int(dut.reg_write_w.value) == 0, "reg_write_w must be 0 in reset"
+    assert int(dut.core.reg_write_w.value) == 0, "reg_write_w must be 0 in reset"
     dut.rst_n.value = 1
 
 @cocotb.test()
@@ -63,14 +63,14 @@ async def write_back_timing_test(dut):
     cocotb.start_soon(Clock(dut.clk, 10, units="ns").start())
     await cpu_reset(dut)
     await run_until_pc(dut, "pc_m", 0x10)
-    assert int(dut.regfile.registers[5].value) == 0, \
+    assert int(dut.core.regfile.registers[5].value) == 0, \
         "x5 was already written while add x5 was only in the memory stage"
     await run_until_pc(dut, "pc_w", 0x10)
-    assert int(dut.regfile.registers[5].value) == 0, \
+    assert int(dut.core.regfile.registers[5].value) == 0, \
         "x5 changed before add x5 finished its write-back cycle"
     await RisingEdge(dut.clk)
     await RisingEdge(dut.clk)
-    assert int(dut.regfile.registers[5].value) == 3, "x5 should be 3 after add x5 leaves write-back"
+    assert int(dut.core.regfile.registers[5].value) == 3, "x5 should be 3 after add x5 leaves write-back"
 
 @cocotb.test()
 async def regfile_same_cycle_test(dut):
@@ -79,6 +79,6 @@ async def regfile_same_cycle_test(dut):
     await cpu_reset(dut)
     # sw x5, 0x1C(x0) is in decode while add x5 (0x10) is in write-back
     await run_until_pc(dut, "pc_d", 0x1C)
-    assert int(dut.pc_w.value) == 0x10, f"expected add x5 in write-back, pc_w = {int(dut.pc_w.value):X}"
-    got = int(dut.read_reg2.value)
+    assert int(dut.core.pc_w.value) == 0x10, f"expected add x5 in write-back, pc_w = {int(dut.core.pc_w.value):X}"
+    got = int(dut.core.read_reg2.value)
     assert got == 3, f"sw reads x5 = {got} in decode, expected 3 (the value being written back this cycle)"

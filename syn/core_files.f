@@ -1,0 +1,9 @@
+../src/riscv_pkg.sv
+../src/alu.sv
+../src/btb.sv
+../src/control.sv
+../src/load_store_decoder.sv
+../src/reader.sv
+../src/regfile.sv
+../src/signext.sv
+../src/cpu.sv

@@ -21,14 +21,14 @@ async def branch_monitor(dut):
         await FallingEdge(dut.clk)
         if int(dut.rst_n.value) == 0:
             continue
-        if int(dut.branch_e.value):
+        if int(dut.core.branch_e.value):
             stats["branches"] += 1
-            stats["branches_taken"] += int(dut.actual_taken.value)
-        if int(dut.jump_e.value):
+            stats["branches_taken"] += int(dut.core.actual_taken.value)
+        if int(dut.core.jump_e.value):
             stats["jumps"] += 1
-        if int(dut.mispredict.value):
+        if int(dut.core.mispredict.value):
             stats["flushes"] += 1
-            flushes_by_pc[int(dut.pc_e.value)] += 1
+            flushes_by_pc[int(dut.core.pc_e.value)] += 1
 
 @cocotb.test()
 async def bias_program_test(dut):
@@ -40,7 +40,7 @@ async def bias_program_test(dut):
     cocotb.start_soon(branch_monitor(dut))
 
     cycles = 0
-    while int(dut.pc_w.value) != LAST_PC:
+    while int(dut.core.pc_w.value) != LAST_PC:
         await RisingEdge(dut.clk)
         cycles += 1
         assert cycles < 500, "the final instruction never reached write-back"
@@ -54,7 +54,7 @@ async def bias_program_test(dut):
 
     errors = []
     for n, want in EXPECTED_REGS.items():
-        got = int(dut.regfile.registers[n].value)
+        got = int(dut.core.regfile.registers[n].value)
         if got != want:
             errors.append(f"x{n} = {got:08X}, expected {want:08X}")
     assert not errors, "wrong final state:\n  " + "\n  ".join(errors)

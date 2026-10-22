@@ -4,3 +4,7 @@ results.xml
 *.vcd
 __pycache__/
 *.pyc
+
+# Yosys reports and logs
+syn/*.log
+syn/stat*.txt

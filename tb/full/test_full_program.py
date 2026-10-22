@@ -41,14 +41,14 @@ async def branch_monitor(dut):
         await FallingEdge(dut.clk)
         if int(dut.rst_n.value) == 0:
             continue
-        taken = int(dut.actual_taken.value)
-        if int(dut.branch_e.value):
+        taken = int(dut.core.actual_taken.value)
+        if int(dut.core.branch_e.value):
             stats["branches"] += 1
             stats["branches_taken"] += taken
-            branch_log.append((int(dut.pc_e.value), taken))
-        if int(dut.jump_e.value):
+            branch_log.append((int(dut.core.pc_e.value), taken))
+        if int(dut.core.jump_e.value):
             stats["jumps"] += 1
-        stats["flushes"] += int(dut.mispredict.value)
+        stats["flushes"] += int(dut.core.mispredict.value)
 
 @cocotb.test()
 async def full_program_test(dut):
@@ -61,7 +61,7 @@ async def full_program_test(dut):
 
     # wait until the final nop reaches write-back: every earlier instruction has completed
     cycles = 0
-    while int(dut.pc_w.value) != LAST_PC:
+    while int(dut.core.pc_w.value) != LAST_PC:
         await RisingEdge(dut.clk)
         cycles += 1
         assert cycles < 200, "the final instruction never reached write-back"
@@ -75,7 +75,7 @@ async def full_program_test(dut):
 
     errors = []
     for n, want in enumerate(EXPECTED_REGS):
-        got = int(dut.regfile.registers[n].value)
+        got = int(dut.core.regfile.registers[n].value)
         if got != want:
             errors.append(f"x{n} = {got:08X}, expected {want:08X}")
     for n, want in enumerate(EXPECTED_MEM):

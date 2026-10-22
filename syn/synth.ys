@@ -1,0 +1,13 @@
+# Generic (technology-independent) synthesis of the CPU core.
+# Run from this directory:  yosys -s synth.ys
+# The memories are outside the core (see tb/top.sv), so only the core is read.
+
+# slang: full SystemVerilog frontend (packages, import, enums)
+plugin -i slang
+read_slang --top cpu ../src/riscv_pkg.sv ../src/alu.sv ../src/btb.sv ../src/control.sv \
+           ../src/load_store_decoder.sv ../src/reader.sv \
+           ../src/regfile.sv ../src/signext.sv ../src/cpu.sv
+
+hierarchy -check -top cpu
+synth -top cpu
+tee -o stat.txt stat

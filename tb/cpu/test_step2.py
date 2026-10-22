@@ -25,7 +25,7 @@ async def cpu_reset(dut):
     await RisingEdge(dut.clk)
 
 def sample(dut, names):
-    return {name: int(getattr(dut, name).value) for name in names}
+    return {name: int(getattr(dut.core, name).value) for name in names}
 
 @cocotb.test()
 async def id_ex_register_test(dut):
@@ -38,7 +38,7 @@ async def id_ex_register_test(dut):
     for cycle in range(9):
         await RisingEdge(dut.clk)
         for decode_name, execute_name in ID_EX_SIGNALS.items():
-            got = int(getattr(dut, execute_name).value)
+            got = int(getattr(dut.core, execute_name).value)
             assert got == prev[decode_name], \
                 f"cycle {cycle}: {execute_name} = {got:X}, expected {prev[decode_name]:X} (previous {decode_name})"
         prev = sample(dut, ID_EX_SIGNALS.keys())
@@ -50,8 +50,8 @@ async def id_ex_reset_test(dut):
     dut.rst_n.value = 0
     await RisingEdge(dut.clk)
     await RisingEdge(dut.clk)
-    assert int(dut.reg_write_e.value) == 0, "reg_write_e must be 0 in reset"
-    assert int(dut.mem_write_e.value) == 0, "mem_write_e must be 0 in reset"
+    assert int(dut.core.reg_write_e.value) == 0, "reg_write_e must be 0 in reset"
+    assert int(dut.core.mem_write_e.value) == 0, "mem_write_e must be 0 in reset"
     dut.rst_n.value = 1
 
 @cocotb.test()
@@ -63,7 +63,7 @@ async def program_result_test(dut):
         await RisingEdge(dut.clk)
     expected = {1: 1, 2: 2, 3: 3, 4: 4, 5: 3, 6: 0xDEADBEEF}
     for reg, value in expected.items():
-        got = int(dut.regfile.registers[reg].value)
+        got = int(dut.core.regfile.registers[reg].value)
         assert got == value, f"x{reg} = {got:08X}, expected {value:08X}"
     got = int(dut.data_memory.mem[7].value)
     assert got == 3, f"mem[7] = {got:08X}, expected 00000003 (sw x5, 0x1C(x0))"
@@ -75,7 +75,7 @@ async def upper_immediate_test(dut):
     await cpu_reset(dut)
     for _ in range(20):
         await RisingEdge(dut.clk)
-    got = int(dut.regfile.registers[8].value)
+    got = int(dut.core.regfile.registers[8].value)
     assert got == 0x12345000, f"x8 = {got:08X}, expected 12345000 (lui x8, 0x12345)"
-    got = int(dut.regfile.registers[9].value)
+    got = int(dut.core.regfile.registers[9].value)
     assert got == 0x00001028, f"x9 = {got:08X}, expected 00001028 (auipc x9, 0x1 at address 0x28)"

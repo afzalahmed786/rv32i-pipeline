@@ -38,13 +38,13 @@ async def run_program(dut):
 
 async def run_until_pc(dut, stage_pc, address, limit=140):
     for _ in range(limit):
-        if int(getattr(dut, stage_pc).value) == address:
+        if int(getattr(dut.core, stage_pc).value) == address:
             return
         await RisingEdge(dut.clk)
     assert False, f"{stage_pc} never reached {address:X}"
 
 def reg(dut, n):
-    return int(dut.regfile.registers[n].value)
+    return int(dut.core.regfile.registers[n].value)
 
 @cocotb.test()
 async def branch_not_taken_test(dut):
@@ -89,8 +89,8 @@ async def flush_timing_test(dut):
     await cpu_reset(dut)
     await run_until_pc(dut, "pc_e", 0xD0)          # bne x1, x2, +12 in execute
     await RisingEdge(dut.clk)
-    assert int(dut.pc.value) == 0xDC, f"fetch should be at the branch target 0xDC, pc = {int(dut.pc.value):X}"
-    assert int(dut.instruction_d.value) == NOP, \
-        f"decode should hold a nop (flushed), instruction_d = {int(dut.instruction_d.value):08X}"
-    assert int(dut.reg_write_e.value) == 0 and int(dut.mem_write_e.value) == 0, \
+    assert int(dut.core.pc.value) == 0xDC, f"fetch should be at the branch target 0xDC, pc = {int(dut.core.pc.value):X}"
+    assert int(dut.core.instruction_d.value) == NOP, \
+        f"decode should hold a nop (flushed), instruction_d = {int(dut.core.instruction_d.value):08X}"
+    assert int(dut.core.reg_write_e.value) == 0 and int(dut.core.mem_write_e.value) == 0, \
         "execute should hold a bubble (flushed), but it would write"

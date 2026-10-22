@@ -31,7 +31,7 @@ async def run_program(dut):
         await RisingEdge(dut.clk)
 
 def reg(dut, n):
-    return int(dut.regfile.registers[n].value)
+    return int(dut.core.regfile.registers[n].value)
 
 def mem(dut, word):
     return int(dut.data_memory.mem[word].value)
@@ -41,12 +41,12 @@ async def id_ex_source_regs_test(dut):
     """Step 5: the ID/EX register also carries the source register numbers"""
     cocotb.start_soon(Clock(dut.clk, 10, units="ns").start())
     await cpu_reset(dut)
-    prev = (int(dut.source_reg1.value), int(dut.source_reg2.value))
+    prev = (int(dut.core.source_reg1.value), int(dut.core.source_reg2.value))
     for cycle in range(30):
         await RisingEdge(dut.clk)
-        got = (int(dut.source_reg1_e.value), int(dut.source_reg2_e.value))
+        got = (int(dut.core.source_reg1_e.value), int(dut.core.source_reg2_e.value))
         assert got == prev, f"cycle {cycle}: (source_reg1_e, source_reg2_e) = {got}, expected {prev}"
-        prev = (int(dut.source_reg1.value), int(dut.source_reg2.value))
+        prev = (int(dut.core.source_reg1.value), int(dut.core.source_reg2.value))
 
 @cocotb.test()
 async def forward_from_memory_test(dut):

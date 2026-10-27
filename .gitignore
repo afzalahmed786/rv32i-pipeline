@@ -8,3 +8,7 @@ __pycache__/
 # Yosys reports and logs
 syn/*.log
 syn/stat*.txt
+syn/lib/
+
+# LibreLane run outputs
+pnr/runs/

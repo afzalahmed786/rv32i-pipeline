@@ -1,0 +1,21 @@
+{
+    "DESIGN_NAME": "cpu",
+    "VERILOG_FILES": [
+        "dir::../src/riscv_pkg.sv",
+        "dir::../src/alu.sv",
+        "dir::../src/btb.sv",
+        "dir::../src/control.sv",
+        "dir::../src/load_store_decoder.sv",
+        "dir::../src/reader.sv",
+        "dir::../src/regfile.sv",
+        "dir::../src/signext.sv",
+        "dir::../src/cpu.sv"
+    ],
+    "USE_SLANG": true,
+    "CLOCK_PORT": "clk",
+    "CLOCK_PERIOD": 40,
+    "FP_CORE_UTIL": 40,
+    "PNR_SDC_FILE": "dir::cpu.sdc",
+    "SIGNOFF_SDC_FILE": "dir::cpu.sdc",
+    "RUN_POST_GRT_RESIZER_TIMING": true
+}
